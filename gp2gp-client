@@ -1,0 +1,145 @@
+#!/usr/bin/env python
+# _*_ coding: utf-8 _*_
+import optparse
+import os
+from time import sleep
+from threading import Thread
+
+import psycopg2
+
+
+def async_call(fn):
+    def wrapper(*args, **kwargs):
+        Thread(target=fn, args=args, kwargs=kwargs).start()
+
+    return wrapper
+
+
+class Client:
+
+    def __init__(self, database, user, password, host, port=5432):
+        self.database = database
+        self.user = user
+        self.password = password
+        self.host = host
+        self.port = port
+
+        self.init_conn = psycopg2.connect(
+            database=database,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        self.init_cursor = self.init_conn.cursor()
+
+        self.data_conns = []
+        self.endpoints = []
+        self.result = []
+
+    def _init_db(self):
+
+        self.init_cursor.execute("declare c1 parallel cursor for select * from t1;")
+        self.init_cursor.execute("select * from gp_endpoints;")
+        rows = self.init_cursor.fetchall()
+
+        print "The endpoints:"
+        for row in rows:
+            endpoint = {
+                "token": row[0],
+                "cursor_name": row[1],
+                "session_id": row[2],
+                "host": row[3],
+                "port": row[4],
+                "status": row[5]
+            }
+            print endpoint
+            self.endpoints.append(endpoint)
+
+    @async_call
+    def _prepare(self):
+        self.init_cursor.execute("execute parallel cursor c1;")
+
+    def _wait(self):
+        sleep(1)
+
+    def _fetch_all(self):
+        for endpoint in self.endpoints:
+            self._fetch_one(endpoint)
+
+    @async_call
+    def _fetch_one(self, endpoint):
+        conn = psycopg2.connect(
+            database=self.database,
+            # user=self.user,
+            user="gpadmin",
+            # password=endpoint.get('token'),
+            password="123456",
+            host=endpoint.get('host'),
+            port=endpoint.get('port'),
+            options="-c gp_session_role=retrieve"
+        )
+
+        self.data_conns.append(conn)
+        cursor = conn.cursor()
+        cursor.execute('retrieve "%s"' % endpoint.get('token'))
+        rows = cursor.fetchall()
+
+        self.result.extend(rows)
+
+    def _close(self):
+        if self.init_conn:
+            self.init_conn.commit()
+            self.init_conn.close()
+
+        for db_conn in self.data_conns:
+            db_conn.commit()
+            db_conn.close()
+
+    def get_data(self):
+        self._init_db()
+        self._prepare()
+        self._fetch_all()
+        self._close()
+
+        return self.result
+
+
+def create_pp_options():
+    usage = "usage: %prog [options]"
+    description = '''GP2GP Client Demo'''
+
+    parser = optparse.OptionParser(
+        description=description, prog='gp2gp-client', usage=usage)
+
+    parser.add_option('-d', '--database', type="string",
+                      dest="database", help="Connect to the database")
+
+    parser.add_option('-H', '--host', type="string",
+                      dest="host", help="Connect to the host, DEFAULT VALUE Env 'PGHOST'", default=os.environ.get('PGHOST', '127.0.0.1'))
+
+    parser.add_option('-p', '--port', type="string",
+                      dest="port", help="Connect to the database on which port, DEFAULT VALUE Env 'PGPORT'",
+                      default=os.environ.get('PGPORT', '5432'))
+
+    parser.add_option('-u', '--user', type="string",
+                      dest="user", help="username to connect the db")
+
+    parser.add_option('-P', '--password', type="string",
+                      dest="password", help="password to connect the db")
+    return parser
+
+
+if __name__ == '__main__':
+    parser = create_pp_options()
+
+    options, args = parser.parse_args()
+
+    c = Client(database=options.database, user=options.user, password=options.password, host=options.host,
+               port=options.port)
+    result = c.get_data()
+
+    print "Total Rows Count: %d" % len(result)
+    print "All The Rows:"
+    print result
