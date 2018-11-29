@@ -15,14 +15,16 @@ def async_call(fn):
     return wrapper
 
 
-class Client:
+class GP2GPClient:
 
-    def __init__(self, database, user, password, host, port=5432):
+    def __init__(self, database, user, password, query, host="127.0.0.1", port=5432, cursor_name='c1'):
         self.database = database
         self.user = user
         self.password = password
+        self.query = query
         self.host = host
         self.port = port
+        self.cursor_name = cursor_name
 
         self.init_conn = psycopg2.connect(
             database=database,
@@ -32,37 +34,56 @@ class Client:
             port=port
         )
 
+        self.status_conn = psycopg2.connect(
+            database=database,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
         self.init_cursor = self.init_conn.cursor()
+        self.status_cursor = self.status_conn.cursor()
 
         self.data_conns = []
         self.endpoints = []
         self.result = []
 
     def _init_db(self):
-
-        self.init_cursor.execute("declare c1 parallel cursor for select * from t1;")
-        self.init_cursor.execute("select * from gp_endpoints;")
-        rows = self.init_cursor.fetchall()
-
-        print "The endpoints:"
-        for row in rows:
-            endpoint = {
-                "token": row[0],
-                "cursor_name": row[1],
-                "session_id": row[2],
-                "host": row[3],
-                "port": row[4],
-                "status": row[5]
-            }
-            print endpoint
-            self.endpoints.append(endpoint)
+        sql = "declare %s parallel cursor for %s" % (self.cursor_name, self.query)
+        self.init_cursor.execute(sql)
 
     @async_call
     def _prepare(self):
-        self.init_cursor.execute("execute parallel cursor c1;")
+        self.init_cursor.execute("execute parallel cursor %s;" % self.cursor_name)
 
     def _wait(self):
-        sleep(1)
+        is_all_ready = False
+
+        while not is_all_ready:
+            endpoints = []
+
+            self.status_cursor.execute("select * from gp_endpoints;")
+            rows = self.status_cursor.fetchall()
+
+            for row in rows:
+                if row[5] == 'READY':
+                    endpoint = {
+                        "token": row[0],
+                        "cursor_name": row[1],
+                        "session_id": row[2],
+                        "hostname": row[3],
+                        "port": row[4],
+                        "status": row[5]
+                    }
+                    endpoints.append(endpoint)
+                else:
+                    sleep(1)
+                    break
+
+            is_all_ready = True
+
+        self.endpoints = endpoints
 
     def _fetch_all(self):
         for endpoint in self.endpoints:
@@ -76,7 +97,7 @@ class Client:
             user="gpadmin",
             # password=endpoint.get('token'),
             password="123456",
-            host=endpoint.get('host'),
+            host=endpoint.get('hostname'),
             port=endpoint.get('port'),
             options="-c gp_session_role=retrieve"
         )
@@ -93,6 +114,10 @@ class Client:
             self.init_conn.commit()
             self.init_conn.close()
 
+        if self.status_conn:
+            self.status_conn.commit()
+            self.status_conn.close()
+
         for db_conn in self.data_conns:
             db_conn.commit()
             db_conn.close()
@@ -100,6 +125,7 @@ class Client:
     def get_data(self):
         self._init_db()
         self._prepare()
+        self._wait()
         self._fetch_all()
         self._close()
 
@@ -136,8 +162,13 @@ if __name__ == '__main__':
 
     options, args = parser.parse_args()
 
-    c = Client(database=options.database, user=options.user, password=options.password, host=options.host,
-               port=options.port)
+    c = GP2GPClient(database=options.database,
+                    user=options.user,
+                    password=options.password,
+                    query="select * from t1",
+                    host=options.host,
+                    port=options.port,
+                    cursor_name='c2')
     result = c.get_data()
 
     print "Total Rows Count: %d" % len(result)
