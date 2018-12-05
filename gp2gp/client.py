@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+# _*_ coding: utf-8 _*_
+
+import os
+from threading import Thread
+from time import sleep
+
+import psycopg2
+
+
+def async_call(fn):
+    def wrapper(*args, **kwargs):
+        Thread(target=fn, args=args, kwargs=kwargs).start()
+
+    return wrapper
+
+
+class GP2GPClient:
+
+    def __init__(self, database, user, password, queries, host="127.0.0.1", port=5432):
+        self.database = database
+        self.user = user
+        self.password = password
+        self.queries = queries
+        self.host = host
+        self.port = port
+
+        self.init_conn = psycopg2.connect(
+            database=database,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        self.status_conn = psycopg2.connect(
+            database=database,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        self.init_cursor = self.init_conn.cursor()
+        self.status_cursor = self.status_conn.cursor()
+
+        self.data_conns = []
+        self.endpoints = {}
+        self.result = []
+
+    def init(self):
+        for cursor_name, sql in self.queries.items():
+            sql = "declare %s parallel cursor for %s;" % (cursor_name, sql)
+            self.init_cursor.execute(sql)
+
+    @async_call
+    def prepare(self, cursor_name=None):
+        cursor_name = self.queries.keys()[0] if cursor_name is None else cursor_name
+        self.init_cursor.execute("execute parallel cursor %s;" % cursor_name)
+
+    def wait_for_ready(self, cursor_name=None):
+        is_all_ready = False
+
+        endpoints = None
+        while not is_all_ready:
+            endpoints = {}
+
+            if cursor_name:
+                self.status_cursor.execute("select * from gp_endpoints where cursor_name='%s';", cursor_name)
+            else:
+                self.status_cursor.execute("select * from gp_endpoints;")
+
+            rows = self.status_cursor.fetchall()
+
+            for row in rows:
+                if row[5] == 'READY':
+                    endpoint = {
+                        "token": row[0],
+                        "cursor_name": row[1],
+                        "session_id": row[2],
+                        "hostname": row[3],
+                        "port": row[4],
+                        "status": row[5]
+                    }
+                    endpoints[endpoint["cursor_name"]] = endpoints.get(endpoint["cursor_name"], [])
+                    endpoints[endpoint["cursor_name"]].append(endpoint)
+                else:
+                    sleep(1)
+                    break
+
+            is_all_ready = True
+
+        self.endpoints = endpoints
+
+    def fetch_all(self):
+        for cursor_name, endpoints in self.endpoints.items():
+            for endpoint in endpoints:
+                self.fetch_one(endpoint)
+
+    @async_call
+    def fetch_one(self, endpoint):
+        try:
+            conn = psycopg2.connect(
+                database=self.database,
+                # user=self.user,
+                user="gpadmin",
+                # password=endpoint.get('token'),
+                password="123456",
+                host=endpoint.get('hostname'),
+                port=endpoint.get('port'),
+                options="-c gp_session_role=retrieve"
+            )
+
+            self.data_conns.append(conn)
+            cursor = conn.cursor()
+            cursor.execute('retrieve "%s"' % endpoint.get('token'))
+            rows = cursor.fetchall()
+            self.result.extend(rows)
+        except Exception as e:
+            print e
+            os._exit(-1)
+
+    def close(self):
+        if self.init_conn:
+            self.init_conn.commit()
+            self.init_conn.close()
+
+        if self.status_conn:
+            self.status_conn.commit()
+            self.status_conn.close()
+
+        for db_conn in self.data_conns:
+            db_conn.commit()
+            db_conn.close()
+
+    def get_data(self):
+        if len(self.queries) != 1:
+            raise Exception("the length of queries should be equal to !")
+
+        self.init()
+        self.prepare()
+        self.wait_for_ready()
+        self.fetch_all()
+        self.close()
+
+        return self.result
