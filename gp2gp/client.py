@@ -93,8 +93,10 @@ class GP2GPClient:
             self.status_cursor.execute("select * from gp_endpoints where cursorname='%s';" % cursor_name)
         else:
             self.status_cursor.execute("select * from gp_endpoints;")
-
-        rows = self.status_cursor.fetchall()
+        try:
+            rows = self.status_cursor.fetchall()
+        except:
+            return {}
 
         for row in rows:
             endpoint = {
@@ -167,17 +169,18 @@ class GP2GPClient:
             count.dec()
 
     def close(self):
-        if self.init_conn:
+        if self.init_conn and (not self.init_conn.closed):
             self.init_conn.commit()
             self.init_conn.close()
 
-        if self.status_conn:
+        if self.status_conn and (not self.status_conn.closed):
             self.status_conn.commit()
             self.status_conn.close()
 
         for db_conn in self.data_conns:
-            db_conn.commit()
-            db_conn.close()
+            if not db_conn.closed:
+                db_conn.commit()
+                db_conn.close()
 
     def get_data(self):
         if len(self.queries) != 1:
