@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # _*_ coding: utf-8 _*_
 
-import os
+import threading
+
 from threading import Thread
 from time import sleep
 
@@ -13,6 +14,33 @@ def async_call(fn):
         Thread(target=fn, args=args, kwargs=kwargs).start()
 
     return wrapper
+
+
+class AtomicInteger():
+    def __init__(self, value=0):
+        self._value = value
+        self._lock = threading.Lock()
+
+    def inc(self):
+        with self._lock:
+            self._value += 1
+            return self._value
+
+    def dec(self):
+        with self._lock:
+            self._value -= 1
+            return self._value
+
+    @property
+    def value(self):
+        with self._lock:
+            return self._value
+
+    @value.setter
+    def value(self, v):
+        with self._lock:
+            self._value = v
+            return self._value
 
 
 class GP2GPClient:
@@ -103,12 +131,18 @@ class GP2GPClient:
         self.endpoints = endpoints
 
     def fetch_all(self):
+        count = AtomicInteger()
         for cursor_name, endpoints in self.endpoints.items():
             for endpoint in endpoints:
-                self.fetch_one(endpoint)
+                count.inc()
+                self.fetch_one(endpoint, count)
+
+        while count.value != 0:
+            print "There are %d threads left.\n" % count.value
+            sleep(0.1)
 
     @async_call
-    def fetch_one(self, endpoint):
+    def fetch_one(self, endpoint, count):
         try:
             conn = psycopg2.connect(
                 database=self.database,
@@ -128,7 +162,9 @@ class GP2GPClient:
             self.result.extend(rows)
         except Exception as e:
             print e
-            os._exit(-1)
+            # os._exit(-1)
+        finally:
+            count.dec()
 
     def close(self):
         if self.init_conn:
