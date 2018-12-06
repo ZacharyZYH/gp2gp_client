@@ -43,7 +43,7 @@ class TestGp2Gp(unittest.TestCase):
         return ret
 
     def setUp(self):
-        os.system("psql -f -d postgres " + os.path.join(cur_dir, "data/db.sql"))
+        os.system("psql -d postgres -f " + os.path.join(cur_dir, "data/db.sql"))
 
         self.database = os.environ.get("GP2GP_DB", "testdb")
         self.user = os.environ.get("GP2GP_USER", "baotingfang")
