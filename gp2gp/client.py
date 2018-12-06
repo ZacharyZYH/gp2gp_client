@@ -62,7 +62,7 @@ class GP2GPClient:
         endpoints = {}
 
         if cursor_name:
-            self.status_cursor.execute("select * from gp_endpoints where cursor_name='%s';", cursor_name)
+            self.status_cursor.execute("select * from gp_endpoints where cursorname='%s';" % cursor_name)
         else:
             self.status_cursor.execute("select * from gp_endpoints;")
 

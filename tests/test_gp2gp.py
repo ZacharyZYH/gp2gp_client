@@ -73,7 +73,7 @@ class TestGp2Gp(unittest.TestCase):
         self.runner.connection.close()
         os.system("dropdb testdb")
 
-    def testGp2Gp(self):
+    def testGp2Gp_case1(self):
         queries = {
             "c1": "select * from t1",
         }
@@ -81,7 +81,7 @@ class TestGp2Gp(unittest.TestCase):
         result = self.client.get_data()
         self.assertEqual(len(result), 1024, u"应该是1024")
 
-    def testGp2Gp2(self):
+    def testGp2Gp_case2(self):
         queries = {
             "c1": "select * from t1",
         }
@@ -89,16 +89,18 @@ class TestGp2Gp(unittest.TestCase):
         self.client.queries = queries
         self.client.init()
 
-        print "=== run my sql ==="
-        print self.run_sql("select * from pg_cursors;", self.client.init_cursor)
+        # create a parallel cursor, we can find it in pg_cursors,
+        # its is_parallel is true
+        ret = self.run_sql("select name, is_parallel from pg_cursors where name='c1';", self.client.init_cursor)
+        self.assertEqual(ret[0][0], 'c1')
+        self.assertTrue(ret[0][1])
 
-        print "===get endpoints ==="
-        print self.client.get_endpoints()
+        ret = self.client.get_endpoints("c1")
 
         self.client.prepare()
         self.client.wait_for_ready()
 
-        print self.client.endpoints
+        # when run
         self.assertTrue(self.client.endpoints["c1"][0]["status"] == "READY", "")
 
         self.client.fetch_all()
