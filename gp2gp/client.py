@@ -58,37 +58,47 @@ class GP2GPClient:
         cursor_name = self.queries.keys()[0] if cursor_name is None else cursor_name
         self.init_cursor.execute("execute parallel cursor %s;" % cursor_name)
 
+    def get_endpoints(self, cursor_name=None):
+        endpoints = {}
+
+        if cursor_name:
+            self.status_cursor.execute("select * from gp_endpoints where cursor_name='%s';", cursor_name)
+        else:
+            self.status_cursor.execute("select * from gp_endpoints;")
+
+        rows = self.status_cursor.fetchall()
+
+        for row in rows:
+            endpoint = {
+                "token": row[0],
+                "cursor_name": row[1],
+                "session_id": row[2],
+                "hostname": row[3],
+                "port": row[4],
+                "status": row[5]
+            }
+            endpoints[endpoint["cursor_name"]] = endpoints.get(endpoint["cursor_name"], [])
+            endpoints[endpoint["cursor_name"]].append(endpoint)
+
+        return endpoints
+
     def wait_for_ready(self, cursor_name=None):
-        is_all_ready = False
 
-        endpoints = None
-        while not is_all_ready:
-            endpoints = {}
-
-            if cursor_name:
-                self.status_cursor.execute("select * from gp_endpoints where cursor_name='%s';", cursor_name)
-            else:
-                self.status_cursor.execute("select * from gp_endpoints;")
-
-            rows = self.status_cursor.fetchall()
-
-            for row in rows:
-                if row[5] == 'READY':
-                    endpoint = {
-                        "token": row[0],
-                        "cursor_name": row[1],
-                        "session_id": row[2],
-                        "hostname": row[3],
-                        "port": row[4],
-                        "status": row[5]
-                    }
-                    endpoints[endpoint["cursor_name"]] = endpoints.get(endpoint["cursor_name"], [])
-                    endpoints[endpoint["cursor_name"]].append(endpoint)
-                else:
-                    sleep(1)
-                    break
+        while True:
 
             is_all_ready = True
+            endpoints = self.get_endpoints(cursor_name)
+
+            for _, values in endpoints.items():
+                for ep in values:
+                    if ep.get("status") != 'READY':
+                        is_all_ready = False
+                        break
+
+            if is_all_ready:
+                break
+            else:
+                sleep(1)
 
         self.endpoints = endpoints
 

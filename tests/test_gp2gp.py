@@ -20,20 +20,36 @@ class TestGp2Gp(unittest.TestCase):
     def tearDownClass(cls):
         print "Destroy Test Suite"
 
+    def printEnv(self):
+        print "\nDATABASE:%s" % self.database
+        print "USER: %s" % self.user
+        print "PASS: %s" % self.password
+        print "HOST: %s" % self.host
+        print "PORT: %s" % self.port
+
+    def run_sql(self, sql, cursor=None):
+
+        if cursor is None:
+            cursor = self.runner
+
+        ret = []
+
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+
+        for row in rows:
+            ret.append(row)
+
+        return ret
+
     def setUp(self):
-        os.system("psql -f " + os.path.join(cur_dir, "data/db.sql"))
+        os.system("psql -f -d postgres " + os.path.join(cur_dir, "data/db.sql"))
 
         self.database = os.environ.get("GP2GP_DB", "testdb")
         self.user = os.environ.get("GP2GP_USER", "baotingfang")
         self.password = ""
         self.host = os.environ.get("GP2GP_HOST", "127.0.0.1")
         self.port = os.environ.get("GP2GP_PORT", 5432)
-
-        print "\nDATABASE:%s" % self.database
-        print "USER: %s" % self.user
-        print "PASS: %s" % self.password
-        print "HOST: %s" % self.host
-        print "PORT: %s" % self.port
 
         self.runner = psycopg2.connect(
             database=self.database,
@@ -72,6 +88,13 @@ class TestGp2Gp(unittest.TestCase):
 
         self.client.queries = queries
         self.client.init()
+
+        print "=== run my sql ==="
+        print self.run_sql("select * from pg_cursors;", self.client.init_cursor)
+
+        print "===get endpoints ==="
+        print self.client.get_endpoints()
+
         self.client.prepare()
         self.client.wait_for_ready()
 
