@@ -138,3 +138,27 @@ class TestGp2Gp(unittest.TestCase):
         self.assertEqual(len(ret), 0)
 
         self.client.close()
+
+    def testGp2Gp_case3(self):
+        queries = {
+            "c1": "select count(*) from t1",
+        }
+
+        self.client.queries = queries
+        self.client.init()
+
+        # After declare a parallel cursor, we can find tokens in gp_endpoints,
+        # and all status should be INIT
+        ret = self.client.get_endpoints("c1")
+        for item in ret["c1"]:
+            self.assertTrue(item["status"], "INIT")
+
+        # endpoint on master
+        self.assertEqual(len(ret), 1)
+        self.client.prepare()
+        self.client.wait_for_ready()
+        self.client.fetch_all()
+        self.assertEqual(len(self.client.result), 1)
+        self.assertEqual(self.client.result[0][0], 1024)
+
+        self.client.close()
