@@ -37,7 +37,10 @@ class TestGp2Gp(unittest.TestCase):
         ret = []
 
         cursor.execute(sql)
-        rows = cursor.fetchall()
+        try:
+            rows = cursor.fetchall()
+        except:
+            return []
 
         for row in rows:
             ret.append(row)
@@ -115,14 +118,23 @@ class TestGp2Gp(unittest.TestCase):
             self.assertTrue(item["status"], "READY")
 
         self.client.fetch_all()
+        # verify the result
+        self.assertEqual(len(self.client.result), 1024)
 
         # After retrieve data from all endpoints,
         # the status should become INIT
         ret = self.client.get_endpoints("c1")
         for item in ret["c1"]:
             self.assertTrue(item["status"], "INIT")
-        sleep(5)
-        # verify the result
-        # print self.client.result
+
+        # close parallel cursor c1
+        self.run_sql("close c1", self.client.init_cursor)
+        # no token related to this cursor
+        ret = self.client.get_endpoints("c1")
+        self.assertEqual(len(ret), 0)
+
+        # not in pg_cursors
+        ret = self.run_sql("select name, is_parallel from pg_cursors where name='c1';", self.client.init_cursor)
+        self.assertEqual(len(ret), 0)
 
         self.client.close()
