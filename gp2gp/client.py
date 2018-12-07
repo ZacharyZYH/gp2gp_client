@@ -133,6 +133,7 @@ class GP2GPClient:
         self.endpoints = endpoints
 
     def fetch_all(self):
+        self.result = []
         count = AtomicInteger()
         for cursor_name, endpoints in self.endpoints.items():
             for endpoint in endpoints:

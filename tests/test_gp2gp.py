@@ -133,7 +133,7 @@ class TestGp2Gp(unittest.TestCase):
         ret = self.client.get_endpoints("c1")
         self.assertEqual(len(ret), 0)
 
-        # not in pg_cursors
+        # not exist in pg_cursors any more
         ret = self.run_sql("select name, is_parallel from pg_cursors where name='c1';", self.client.init_cursor)
         self.assertEqual(len(ret), 0)
 
@@ -159,6 +159,51 @@ class TestGp2Gp(unittest.TestCase):
         self.client.wait_for_ready()
         self.client.fetch_all()
         self.assertEqual(len(self.client.result), 1)
+
+        # the result should be the tuple count of this table.
         self.assertEqual(self.client.result[0][0], 1024)
 
         self.client.close()
+
+
+    def testGp2Gp_case4(self):
+        # In this case, we declare some parallel cursors
+        # in one session and execute them one by one.
+        queries = {
+            "c0": "select count(*) from t1",
+            "c1": "select * from t1 where c1 <10 order by c1",
+            "c2": "select * from t2 order by c1",
+            "c3": "select count(*) from t2 where c1 < 20",
+            "c4": "select * from t1,t3 where t1.c1 = t3.c1 order by t1.c1",
+            "c5": "select count(*) from t1,t2 where t1.c1 = t2.c1",
+            "c6": "select sum(c1) from t3",
+            "c7": "select * from t1,t2,t3 where t1.c1=t2.c1 and t2.c1 =t3.c1 order by t1.c1"
+        }
+
+        # declare parallel cursors
+        self.client.queries = queries
+        self.client.init()
+
+        for i in range(len(queries)):
+            cursor = 'c%d' % i
+            cmd = "select name, is_parallel from pg_cursors where name='%s'" % cursor
+            ret = self.run_sql(cmd, self.client.init_cursor)
+            self.assertTrue(ret[0][1])
+
+            ret = self.client.get_endpoints(cursor)
+            for item in ret[cursor]:
+                self.assertTrue(item["status"], "INIT")
+
+            # execute cursor and verify the result.
+            self.client.prepare(cursor)
+            self.client.wait_for_ready(cursor)
+            self.client.fetch_all()
+            # execute the query without parallel cursor
+            # the results should be same
+            ret = self.run_sql(queries[cursor])
+            self.assertEqual(len(ret), len(self.client.result))
+            for i in range(len(ret)):
+                self.assertEqual(self.client.result[i], ret[i])
+
+        self.client.close()
+        
