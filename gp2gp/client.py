@@ -160,7 +160,7 @@ class GP2GPClient:
 
             self.data_conns.append(conn)
             cursor = conn.cursor()
-            cursor.execute('retrieve "%s"' % endpoint.get('token'))
+            cursor.execute('retrieve all from "%s"' % endpoint.get('token'))
             rows = cursor.fetchall()
             self.result.extend(rows)
         except Exception as e:
