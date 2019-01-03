@@ -177,7 +177,10 @@ class TestGp2Gp(unittest.TestCase):
             "c4": "select * from t1,t3 where t1.c1 = t3.c1 order by t1.c1",
             "c5": "select count(*) from t1,t2 where t1.c1 = t2.c1",
             "c6": "select sum(c1) from t3",
-            "c7": "select * from t1,t2,t3 where t1.c1=t2.c1 and t2.c1 =t3.c1 order by t1.c1"
+            "c7": "select * from t1,t2,t3 where t1.c1=t2.c1 and t2.c1 =t3.c1 order by t1.c1",
+            "c8": "select * from t1 where c1 = 1 or c1 = 2 or c1 =100 order by c1",
+            "c9": "select * from t1 where c1 = 101",
+            "c10": "select count(*) from t1 where c1 = 101",
         }
 
         # declare parallel cursors
