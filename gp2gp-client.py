@@ -2,8 +2,10 @@
 # _*_ coding: utf-8 _*_
 #
 import os
+import logging
 import optparse
 
+from prettytable import PrettyTable
 from gp2gp.client import GP2GPClient
 
 
@@ -30,7 +32,21 @@ def create_options():
 
     parser.add_option('-P', '--password', type="string",
                       dest="password", help="password to connect the db")
+
+    parser.add_option('-c', '--query', type="string",
+                      dest="query", help="the query which send to server")
+
+    parser.add_option('-l', '--level', type="string",
+                      dest="log_level", help="log level: info|debug", default="info")
+
     return parser
+
+
+def output_result(columns, rows):
+    table = PrettyTable(list(columns))
+    for row in rows:
+        table.add_row(row)
+    print table
 
 
 if __name__ == '__main__':
@@ -38,8 +54,16 @@ if __name__ == '__main__':
 
     options, args = parser.parse_args()
 
+    if options.log_level == 'debug':
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    if not options.query:
+        raise Exception("Not set the query!")
+
     queries = {
-        "c1": "select * from t1",
+        "c1": options.query,
     }
 
     c = GP2GPClient(database=options.database,
@@ -50,8 +74,5 @@ if __name__ == '__main__':
                     port=options.port
                     )
 
-    result = c.get_data()
-
-    print "Total Rows Count: %d" % len(result)
-    print "All The Rows:"
-    print result
+    rows = c.get_data()
+    output_result(c.columns, rows)

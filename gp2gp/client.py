@@ -2,6 +2,7 @@
 # _*_ coding: utf-8 _*_
 
 import threading
+import logging
 
 from threading import Thread
 from time import sleep
@@ -74,17 +75,21 @@ class GP2GPClient:
 
         self.data_conns = []
         self.endpoints = {}
+        self.columns = []
         self.result = []
 
     def init(self):
         for cursor_name, sql in self.queries.items():
             sql = "declare %s parallel cursor for %s;" % (cursor_name, sql)
+            logging.debug("Init: %s", sql)
             self.init_cursor.execute(sql)
 
     @async_call
     def prepare(self, cursor_name=None):
         cursor_name = self.queries.keys()[0] if cursor_name is None else cursor_name
-        self.init_cursor.execute("execute parallel cursor %s;" % cursor_name)
+        sql = "execute parallel cursor %s;" % cursor_name
+        logging.debug("Prepare: %s", sql)
+        self.init_cursor.execute(sql)
 
     def get_endpoints(self, cursor_name=None):
         endpoints = {}
@@ -109,6 +114,8 @@ class GP2GPClient:
             }
             endpoints[endpoint["cursor_name"]] = endpoints.get(endpoint["cursor_name"], [])
             endpoints[endpoint["cursor_name"]].append(endpoint)
+
+        logging.debug("Endpoints: %s", endpoints)
 
         return endpoints
 
@@ -141,7 +148,7 @@ class GP2GPClient:
                 self.fetch_one(endpoint, count)
 
         while count.value != 0:
-            print "There are %d threads left.\n" % count.value
+            logging.debug("There are %d threads left.\n" % count.value)
             sleep(0.1)
 
     @async_call
@@ -161,6 +168,10 @@ class GP2GPClient:
             self.data_conns.append(conn)
             cursor = conn.cursor()
             cursor.execute('retrieve all from "%s"' % endpoint.get('token'))
+
+            if count.value == 1:
+                self.columns = [desc[0] for desc in cursor.description]
+
             rows = cursor.fetchall()
             self.result.extend(rows)
         except Exception as e:
@@ -185,7 +196,7 @@ class GP2GPClient:
 
     def get_data(self):
         if len(self.queries) != 1:
-            raise Exception("the length of queries should be equal to !")
+            raise Exception("the length of queries should be equal to 1")
 
         self.init()
         self.prepare()
