@@ -181,6 +181,7 @@ class TestGp2Gp(unittest.TestCase):
             "c8": "select * from t1 where c1 = 1 or c1 = 2 or c1 =100 order by c1",
             "c9": "select * from t1 where c1 = 101",
             "c10": "select count(*) from t1 where c1 = 101",
+            "c11": "select name::cstring from nation order by id",
         }
 
         # declare parallel cursors
