@@ -110,7 +110,8 @@ class GP2GPClient:
                 "session_id": row[2],
                 "hostname": row[3],
                 "port": row[4],
-                "status": row[5]
+                "user_id": row[5],
+                "status": row[6]
             }
             endpoints[endpoint["cursor_name"]] = endpoints.get(endpoint["cursor_name"], [])
             endpoints[endpoint["cursor_name"]].append(endpoint)
