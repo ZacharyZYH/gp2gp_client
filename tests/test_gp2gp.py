@@ -51,10 +51,10 @@ class TestGp2Gp(unittest.TestCase):
         os.system("psql -d postgres -f " + os.path.join(cur_dir, "data/db.sql"))
 
         self.database = os.environ.get("GP2GP_DB", "testdb")
-        self.user = os.environ.get("GP2GP_USER", "baotingfang")
+        self.user = os.environ.get("GP2GP_USER", "gpadmin")
         self.password = ""
         self.host = os.environ.get("GP2GP_HOST", "127.0.0.1")
-        self.port = os.environ.get("GP2GP_PORT", 5432)
+        self.port = os.environ.get("GP2GP_PORT", 15432)
 
         self.runner = psycopg2.connect(
             database=self.database,
@@ -96,6 +96,8 @@ class TestGp2Gp(unittest.TestCase):
         self.client.queries = queries
         self.client.init()
 
+        token = self.client.get_token()
+
         # Declare a parallel cursor, we can find it in pg_cursors,
         # its is_parallel is true
         ret = self.run_sql("select name, is_parallel from pg_cursors where name='c1';", self.client.init_cursor)
@@ -104,17 +106,17 @@ class TestGp2Gp(unittest.TestCase):
 
         # After declare a parallel cursor, we can find tokens in gp_endpoints,
         # and all status should be INIT
-        ret = self.client.get_endpoints("c1")
-        for item in ret["c1"]:
+        ret = self.client.get_endpoints(token)
+        for item in ret[token]:
             self.assertTrue(item["status"], "INIT")
 
         self.client.prepare()
-        self.client.wait_for_ready()
+        self.client.wait_for_ready(token)
 
         # when execute the parallel cursor,
         # token status should be READY
-        ret = self.client.get_endpoints("c1")
-        for item in ret["c1"]:
+        ret = self.client.get_endpoints(token)
+        for item in ret[token]:
             self.assertTrue(item["status"], "READY")
 
         self.client.fetch_all()
@@ -123,14 +125,14 @@ class TestGp2Gp(unittest.TestCase):
 
         # After retrieve data from all endpoints,
         # the status should become INIT
-        ret = self.client.get_endpoints("c1")
-        for item in ret["c1"]:
+        ret = self.client.get_endpoints(token)
+        for item in ret[token]:
             self.assertTrue(item["status"], "INIT")
 
         # close parallel cursor c1
         self.run_sql("close c1", self.client.init_cursor)
         # no token related to this cursor
-        ret = self.client.get_endpoints("c1")
+        ret = self.client.get_endpoints(token)
         self.assertEqual(len(ret), 0)
 
         # not exist in pg_cursors any more
@@ -147,16 +149,18 @@ class TestGp2Gp(unittest.TestCase):
         self.client.queries = queries
         self.client.init()
 
+        token = self.client.get_token()
+
         # After declare a parallel cursor, we can find tokens in gp_endpoints,
         # and all status should be INIT
-        ret = self.client.get_endpoints("c1")
-        for item in ret["c1"]:
+        ret = self.client.get_endpoints(token)
+        for item in ret[token]:
             self.assertTrue(item["status"], "INIT")
 
         # endpoint on master
         self.assertEqual(len(ret), 1)
         self.client.prepare()
-        self.client.wait_for_ready()
+        self.client.wait_for_ready(token)
         self.client.fetch_all()
         self.assertEqual(len(self.client.result), 1)
 
@@ -166,6 +170,7 @@ class TestGp2Gp(unittest.TestCase):
         self.client.close()
 
 
+    # not yet implemented
     def testGp2Gp_case4(self):
         # In this case, we declare some parallel cursors
         # in one session and execute them one by one.

@@ -84,6 +84,11 @@ class GP2GPClient:
             logging.debug("Init: %s", sql)
             self.init_cursor.execute(sql)
 
+    def get_token(self):
+        self.init_cursor.execute("select * from gp_endpoints;")
+        rows = self.init_cursor.fetchall()
+        return rows[0][0]
+ 
     @async_call
     def prepare(self, cursor_name=None):
         cursor_name = self.queries.keys()[0] if cursor_name is None else cursor_name
@@ -91,13 +96,13 @@ class GP2GPClient:
         logging.debug("Prepare: %s", sql)
         self.init_cursor.execute(sql)
 
-    def get_endpoints(self, cursor_name=None):
+    def get_endpoints(self, token=None):
         endpoints = {}
-
-        if cursor_name:
-            self.status_cursor.execute("select * from gp_endpoints where cursorname='%s';" % cursor_name)
+        
+        if token:
+            self.status_cursor.execute("select * from gp_endpoints_info(true) where token='%s';" % token)
         else:
-            self.status_cursor.execute("select * from gp_endpoints;")
+            self.status_cursor.execute("select * from gp_endpoints_info(true);")
         try:
             rows = self.status_cursor.fetchall()
         except:
@@ -110,22 +115,23 @@ class GP2GPClient:
                 "session_id": row[2],
                 "hostname": row[3],
                 "port": row[4],
-                "user_id": row[5],
-                "status": row[6]
+                "db_id": row[5],
+                "user_id": row[6],
+                "status": row[7]
             }
-            endpoints[endpoint["cursor_name"]] = endpoints.get(endpoint["cursor_name"], [])
-            endpoints[endpoint["cursor_name"]].append(endpoint)
+            endpoints[endpoint["token"]] = endpoints.get(endpoint["token"], [])
+            endpoints[endpoint["token"]].append(endpoint)
 
         logging.debug("Endpoints: %s", endpoints)
 
         return endpoints
 
-    def wait_for_ready(self, cursor_name=None):
+    def wait_for_ready(self, token=None):
 
         while True:
 
             is_all_ready = True
-            endpoints = self.get_endpoints(cursor_name)
+            endpoints = self.get_endpoints(token)
 
             for _, values in endpoints.items():
                 for ep in values:
@@ -143,7 +149,7 @@ class GP2GPClient:
     def fetch_all(self):
         self.result = []
         count = AtomicInteger()
-        for cursor_name, endpoints in self.endpoints.items():
+        for _, endpoints in self.endpoints.items():
             for endpoint in endpoints:
                 count.inc()
                 self.fetch_one(endpoint, count)
@@ -157,10 +163,10 @@ class GP2GPClient:
         try:
             conn = psycopg2.connect(
                 database=self.database,
-                # user=self.user,
-                user="gpadmin",
-                # password=endpoint.get('token'),
-                password="123456",
+                user=self.user,
+                # user="gpadmin",
+                password=endpoint.get('token'),
+                # password="123456",
                 host=endpoint.get('hostname'),
                 port=endpoint.get('port'),
                 options="-c gp_session_role=retrieve"
@@ -200,8 +206,10 @@ class GP2GPClient:
             raise Exception("the length of queries should be equal to 1")
 
         self.init()
+        token = self.get_token()
+        self.endpoints = self.get_endpoints(token)
         self.prepare()
-        self.wait_for_ready()
+        self.wait_for_ready(token)
         self.fetch_all()
         self.close()
 
