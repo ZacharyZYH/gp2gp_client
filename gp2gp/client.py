@@ -46,13 +46,15 @@ class AtomicInteger():
 
 class GP2GPClient:
 
-    def __init__(self, database, user, password, queries, host="127.0.0.1", port=5432):
+    def __init__(self, database, user, password, queries, host="127.0.0.1", port=5432, is_normal=False, perf_test=False):
         self.database = database
         self.user = user
         self.password = password
         self.queries = queries
         self.host = host
         self.port = port
+        self.is_normal = is_normal
+        self.perf_test = perf_test
 
         self.init_conn = psycopg2.connect(
             database=database,
@@ -80,15 +82,18 @@ class GP2GPClient:
 
     def init(self):
         for cursor_name, sql in self.queries.items():
-            sql = "declare %s parallel cursor for %s;" % (cursor_name, sql)
+            if self.is_normal:
+                sql = "declare %s cursor for %s;" % (cursor_name, sql)
+            else:
+                sql = "declare %s parallel cursor for %s;" % (cursor_name, sql)
             logging.debug("Init: %s", sql)
             self.init_cursor.execute(sql)
 
     def get_token(self):
         self.init_cursor.execute("select * from gp_endpoints;")
-        rows = self.init_cursor.fetchall()
-        return rows[0][0]
- 
+        row = self.init_cursor.fetchone()
+        return row[0]
+
     @async_call
     def prepare(self, cursor_name=None):
         cursor_name = self.queries.keys()[0] if cursor_name is None else cursor_name
@@ -98,7 +103,7 @@ class GP2GPClient:
 
     def get_endpoints(self, token=None):
         endpoints = {}
-        
+
         if token:
             self.status_cursor.execute("select * from gp_endpoints_info(true) where token='%s';" % token)
         else:
@@ -175,12 +180,13 @@ class GP2GPClient:
             self.data_conns.append(conn)
             cursor = conn.cursor()
             cursor.execute('retrieve all from "%s"' % endpoint.get('token'))
-
-            if count.value == 1:
-                self.columns = [desc[0] for desc in cursor.description]
-
             rows = cursor.fetchall()
-            self.result.extend(rows)
+
+            if not self.perf_test:
+                if count.value == 1:
+                    self.columns = [desc[0] for desc in cursor.description]
+
+                self.result.extend(rows)
         except Exception as e:
             print e
             # os._exit(-1)
@@ -202,15 +208,24 @@ class GP2GPClient:
                 db_conn.close()
 
     def get_data(self):
-        if len(self.queries) != 1:
-            raise Exception("the length of queries should be equal to 1")
+        if(self.is_normal):
+            self.init()
+            self.init_cursor.execute("fetch all from %s;" % self.queries.keys()[0])
+            rows = self.init_cursor.fetchall()
+            if not self.perf_test:
+                self.columns = [desc[0] for desc in self.init_cursor.description]
+                self.result.extend(rows)
+            self.init_cursor.execute("close %s;" % self.queries.keys()[0])
+        else:
+            if len(self.queries) != 1:
+                raise Exception("the length of queries should be equal to 1")
 
-        self.init()
-        token = self.get_token()
-        self.endpoints = self.get_endpoints(token)
-        self.prepare()
-        self.wait_for_ready(token)
-        self.fetch_all()
-        self.close()
+            self.init()
+            token = self.get_token()
+            self.endpoints = self.get_endpoints(token)
+            self.prepare()
+            self.wait_for_ready(token)
+            self.fetch_all()
+            self.close()
 
         return self.result

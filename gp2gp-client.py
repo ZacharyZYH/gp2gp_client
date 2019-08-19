@@ -4,6 +4,7 @@
 import os
 import logging
 import optparse
+import time
 
 from prettytable import PrettyTable
 from gp2gp.client import GP2GPClient
@@ -36,8 +37,17 @@ def create_options():
     parser.add_option('-c', '--query', type="string",
                       dest="query", help="the query which send to server")
 
+    parser.add_option('-f', '--file', type="string",
+                      dest="filename", help="the file that stores the query")
+
+    parser.add_option('-n', '--normal', action="store_true",
+                      dest="is_normal", help="use normal cursor instead of parallel cursor", default=False)
+
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug", default="info")
+
+    parser.add_option('-t', '--test', action="store_true",
+                      dest="perf_test", help="not generating the result, just for performance testing", default=False)
 
     return parser
 
@@ -59,20 +69,44 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.INFO)
 
-    if not options.query:
-        raise Exception("Not set the query!")
+    if not options.query and not options.filename:
+        raise Exception("Not set the query nor specify a file!")
 
-    queries = {
-        "c1": options.query,
-    }
+    if options.query and options.filename:
+        raise Exception("Cannot set the query and specify a file at the same time")
+
+    if options.query:
+        queries = {
+            "c1": options.query,
+        }
+    else:
+        f = open(options.filename)
+        queries = {
+            "c1": f.read(),
+        }
+        f.close()
 
     c = GP2GPClient(database=options.database,
                     user=options.user,
                     password=options.password,
                     queries=queries,
                     host=options.host,
-                    port=options.port
+                    port=options.port,
+                    is_normal=options.is_normal,
+                    perf_test=options.perf_test
                     )
 
+    # clear memory cache
+    if options.perf_test:
+        print("cleaning cache...")
+        os.system("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'")
+        print("running query...")
+
+    time_start=time.time()
     rows = c.get_data()
-    output_result(c.columns, rows)
+    time_end=time.time()
+
+    if not options.perf_test:
+        output_result(c.columns, rows)
+    else:
+        print('totally cost',time_end-time_start)
