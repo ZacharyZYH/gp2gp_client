@@ -80,6 +80,13 @@ class GP2GPClient:
         self.columns = []
         self.result = []
 
+    def deploy(self):
+        # TODO
+        # get all segments and transmit the retrieve client scripts
+        # SELECT distinct hostname FROM gp_segment_configuration WHERE role = 'p';
+        pass
+
+
     def init(self):
         for cursor_name, sql in self.queries.items():
             if self.is_normal:

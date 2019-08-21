@@ -7,7 +7,7 @@ import optparse
 import time
 
 from prettytable import PrettyTable
-from gp2gp.client import GP2GPClient
+from client import GP2GPClient
 
 
 def create_options():
@@ -46,9 +46,6 @@ def create_options():
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug", default="info")
 
-    parser.add_option('-t', '--test', action="store_true",
-                      dest="perf_test", help="not generating the result, just for performance testing", default=False)
-
     return parser
 
 
@@ -59,11 +56,7 @@ def output_result(columns, rows):
     print table
 
 
-if __name__ == '__main__':
-    parser = create_options()
-
-    options, args = parser.parse_args()
-
+def initialize_client(options, test = False):
     if options.log_level == 'debug':
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -93,11 +86,15 @@ if __name__ == '__main__':
                     host=options.host,
                     port=options.port,
                     is_normal=options.is_normal,
-                    perf_test=options.perf_test
+                    perf_test=test
                     )
 
+    # if deploying
+    #     c.deploy()
+    #     return 0.0
+
     # clear memory cache
-    if options.perf_test:
+    if test:
         print("cleaning cache...")
         os.system("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'")
         print("running query...")
@@ -106,7 +103,14 @@ if __name__ == '__main__':
     rows = c.get_data()
     time_end=time.time()
 
-    if not options.perf_test:
+    if not test:
         output_result(c.columns, rows)
+        return 0.0
     else:
-        print('totally cost',time_end-time_start)
+        return time_end - time_start
+
+
+def main(test=False):
+    parser = create_options()
+    options, _ = parser.parse_args()
+    initialize_client(options, test)
