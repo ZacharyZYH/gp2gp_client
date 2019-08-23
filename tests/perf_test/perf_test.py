@@ -4,11 +4,10 @@
 # this script runs and compares 22 tpc-h queries in both normal cursor mode and parallel cursor mode
 
 import os
-import importlib
+import logging
 import optparse
-
-# unable to import GP2GP-CLIENT because of the '-' char
-client_initializer = importlib.import_module("GP2GP-CLIENT.gp2gp.client_initializer")
+from gp2gp.client import GP2GPClient
+from gp2gp.client_initializer import initialize_client
 
 def create_options():
     usage = "usage: %prog [options]"
@@ -33,7 +32,7 @@ def create_options():
 
     parser.add_option('-P', '--password', type="string",
                       dest="password", help="password to connect the db")
-                      
+
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug", default="info")
 
@@ -43,6 +42,32 @@ def main():
     parser = create_options()
     options, _ = parser.parse_args()
     options.deploying = True
-    c = client_initializer.initialize_client(options, test=True)
-    # TODO: run and test the queries
+
+    if options.log_level == 'debug':
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    c = GP2GPClient(database=options.database,
+                    user=options.user,
+                    password=options.password,
+                    host=options.host,
+                    port=options.port,
+                    queries={}
+        )
+    c.deploy()
+    options.deploying = False
+
+    # read the queries from data dir
+    if os.path.basename(os.getcwd()) != "gp2gp_client":
+        raise Exception("Please enter the perf_test directory to run the script." + os.path.basename(os.getcwd()))
+    path = "tests/perf_test/data/"
+    file_list = os.listdir(path)
+
+    for filename in file_list:
+        f = open(path+filename)
+        options.query = f.read()
+        f.close()
+
+    # c = initialize_client(options, test=True)
 
