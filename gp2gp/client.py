@@ -8,6 +8,8 @@ from threading import Thread
 from time import sleep
 
 import psycopg2
+import os
+
 
 
 def async_call(fn):
@@ -80,11 +82,22 @@ class GP2GPClient:
         self.columns = []
         self.result = []
 
+    def get_segments(self):
+        sql = "SELECT distinct hostname FROM gp_segment_configuration WHERE role = 'p'"
+        self.init_cursor.execute(sql)
+        return self.init_cursor.fetchall()
+
+    def upload(self, seg_host):
+        logging.info("uploading to host: %s", seg_host)
+        user = self.user or "gpadmin"
+        os.system("scp -r retrieve_client_scripts/ " + user + "@" + seg_host + ":~ && ./retrieve_client_scripts/env.sh")
+
     def deploy(self):
-        # TODO
-        # get all segments and transmit the retrieve client scripts
-        # SELECT distinct hostname FROM gp_segment_configuration WHERE role = 'p';
-        pass
+        segments = self.get_segments()
+        for segment in segments:
+            self.upload(segment[0])
+
+        logging.info("deploy: finished")
 
 
     def init(self):

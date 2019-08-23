@@ -46,6 +46,9 @@ def create_options():
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug", default="info")
 
+    parser.add_option('-D', '--Deploy', action="store_true",
+                      dest="deploying", help="deploy the clients by uploading", default=False)
+
     return parser
 
 
@@ -86,12 +89,12 @@ def initialize_client(options, test = False):
                     host=options.host,
                     port=options.port,
                     is_normal=options.is_normal,
-                    perf_test=test
+                    perf_test=test,
                     )
 
-    # if deploying
-    #     c.deploy()
-    #     return 0.0
+    if options.deploying:
+        c.deploy()
+        return 0.0
 
     # clear memory cache
     if test:
