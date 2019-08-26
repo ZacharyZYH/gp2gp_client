@@ -1,20 +1,18 @@
 #!/usr/bin/env python
 # _*_ coding: utf-8 _*_
 
-import threading
 import logging
-
-from threading import Thread
+import os
+import subprocess
+import threading
 from time import sleep
 
 import psycopg2
-import os
-
 
 
 def async_call(fn):
     def wrapper(*args, **kwargs):
-        Thread(target=fn, args=args, kwargs=kwargs).start()
+        threading.Thread(target=fn, args=args, kwargs=kwargs).start()
 
     return wrapper
 
@@ -144,10 +142,10 @@ class GP2GPClient:
                 "user_id": row[6],
                 "status": row[7]
             }
-            endpoints[endpoint["token"]] = endpoints.get(endpoint["token"], [])
-            endpoints[endpoint["token"]].append(endpoint)
+            endpoints[endpoint["hostname"]] = endpoints.get(endpoint["token"], [])
+            endpoints[endpoint["hostname"]].append(endpoint)
 
-        logging.debug("Endpoints: %s", endpoints)
+        logging.info("Endpoints: %s", endpoints)
 
         return endpoints
 
@@ -174,18 +172,35 @@ class GP2GPClient:
     def fetch_all(self):
         self.result = []
         count = AtomicInteger()
-        for _, endpoints in self.endpoints.items():
-            for endpoint in endpoints:
+        for endpoints_per_machine in self.endpoints:
                 count.inc()
-                self.fetch_one(endpoint, count)
+            self.fetch_one(endpoints_per_machine, count)
 
         while count.value != 0:
             logging.debug("There are %d threads left.\n" % count.value)
             sleep(0.1)
 
+    # retrieve all segments of a same machine
     @async_call
-    def fetch_one(self, endpoint, count):
+    def fetch_one(self, endpoints, count):
         try:
+            # join all ports to one string
+            ports_arr = []
+            for endpoint in endpoints:
+                ports_arr.append(endpoint["port"])
+            ports = ",".join(ports_arr)
+            logging.debug("the ports are joined into one string: %s", ports)
+
+            user = self.user or "gpadmin"
+            cmd_arg = [ "ssh", user + "@" + self.host, 
+                        "python", "retrieve_client_scripts/retrieve_client.py", 
+                        "-d", self.database, 
+                        "-H", endpoint["hostname"], 
+                        "-p", ports, 
+                        "-u", self.user,
+                        "-t", endpoint["token"]]
+            subprocess.call(cmd_arg)
+
             conn = psycopg2.connect(
                 database=self.database,
                 user=self.user,

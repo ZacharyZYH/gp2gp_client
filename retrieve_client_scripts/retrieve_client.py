@@ -20,8 +20,8 @@ def create_options():
                       dest="host", help="Connect to the host, DEFAULT VALUE Env 'PGHOST'",
                       default=os.environ.get('PGHOST', '127.0.0.1'))
 
-    parser.add_option('-p', '--port', type="string",
-                      dest="port", help="Connect to the database on which port, DEFAULT VALUE Env 'PGPORT'",
+    parser.add_option('-p', '--ports', type="string",
+                      dest="ports", help="All segment ports joined by commas(no space), e.g. 25432,25433,25434. DEFAULT VALUE Env 'PGPORT'",
                       default=os.environ.get('PGPORT', '5432'))
 
     parser.add_option('-u', '--user', type="string",
@@ -38,7 +38,6 @@ def create_options():
 
 if __name__ == '__main__':
     parser = create_options()
-
     options, args = parser.parse_args()
 
     if options.log_level == 'debug':
@@ -46,7 +45,12 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.INFO)
 
-    # TODO: retrieve from the specified host
+    # parse the port string into a list
+    ports = options.ports.split(",")
+
+    for port in ports:
+        # TODO: async retrieve all segments of this machine.
+        pass
 
     conn = psycopg2.connect(
                 database=options.database,
@@ -60,8 +64,4 @@ if __name__ == '__main__':
     cursor.execute('retrieve all from "%s"' % options.token)
     rows = cursor.fetchall()
     print(rows)
-
-# connect in retrieve mode
-# declare cursor
-# execute "RETRIEVE ..." 
-# fecthall
+    # TODO: whether print or not(test mode)
