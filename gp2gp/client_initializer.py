@@ -96,11 +96,15 @@ def initialize_client(options, test = False):
         c.deploy()
         return 0.0
 
-    # clear memory cache
+    # clear memory cache on each machine
     if test:
-        print("cleaning cache...")
-        os.system("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'")
-        print("running query...")
+        hosts = c.get_hosts()
+        print("Hosts: ", hosts)
+        for host in hosts:
+            print("cleaning cache on " + host + "...")
+            args = ["ssh","root@" + host,"echo", "3", ">",  "/proc/sys/vm/drop_caches"]
+            subprocess.call(args)
+            print("finish")
 
     time_start=time.time()
     rows = c.get_data()

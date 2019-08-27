@@ -80,8 +80,21 @@ class GP2GPClient:
         self.columns = []
         self.result = []
 
+    def get_clients(self, client_conf):
+        file = open(client_conf)
+        clients = file.readlines()
+        file.close()
+        if not clients:
+            raise Exception("no valid hosts in the client config file")
+        return clients
+
+    def get_hosts(self):
+        sql = "SELECT DISTINCT hostname FROM gp_segment_configuration WHERE role = 'p'" # Not sure
+        self.init_cursor.execute(sql)
+        return self.init_cursor.fetchall()
+
     def get_segments(self):
-        sql = "SELECT distinct hostname FROM gp_segment_configuration WHERE role = 'p'"
+        sql = "SELECT DISTINCT hostname FROM gp_segment_configuration WHERE role = 'p' AND content>-1" # Not sure
         self.init_cursor.execute(sql)
         return self.init_cursor.fetchall()
 
