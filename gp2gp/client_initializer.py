@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # _*_ coding: utf-8 _*_
 #
-import os
 import logging
 import optparse
+import os
+import subprocess
 import time
 
 from prettytable import PrettyTable
+
 from client import GP2GPClient
 
 
@@ -34,7 +36,7 @@ def create_options():
     parser.add_option('-P', '--password', type="string",
                       dest="password", help="password to connect the db")
 
-    parser.add_option('-c', '--query', type="string",
+    parser.add_option('-q', '--query', type="string",
                       dest="query", help="the query which send to server")
 
     parser.add_option('-f', '--file', type="string",
@@ -43,11 +45,14 @@ def create_options():
     parser.add_option('-n', '--normal', action="store_true",
                       dest="is_normal", help="use normal cursor instead of parallel cursor", default=False)
 
+    parser.add_option('-D', '--deploy', action="store_true",
+                      dest="deploying", help="deploy the clients by uploading", default=False)
+
+    parser.add_option('-c', '--client_conf', type="string",
+                      dest="client_conf", help="the config file that stores the client machines", default="clients.conf")
+
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug", default="info")
-
-    parser.add_option('-D', '--Deploy', action="store_true",
-                      dest="deploying", help="deploy the clients by uploading", default=False)
 
     return parser
 
@@ -90,10 +95,11 @@ def initialize_client(options, test = False):
                     port=options.port,
                     is_normal=options.is_normal,
                     perf_test=test,
+                    client_conf=options.client_conf
                     )
 
     if options.deploying:
-        c.deploy()
+        c.deploy(options.client_conf)
         return 0.0
 
     # clear memory cache on each machine

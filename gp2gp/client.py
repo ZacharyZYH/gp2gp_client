@@ -46,7 +46,7 @@ class AtomicInteger():
 
 class GP2GPClient:
 
-    def __init__(self, database, user, password, queries, host="127.0.0.1", port=5432, is_normal=False, perf_test=False):
+    def __init__(self, database, user, password, queries, client_conf, host="127.0.0.1", port=5432, is_normal=False, perf_test=False):
         self.database = database
         self.user = user
         self.password = password
@@ -55,6 +55,8 @@ class GP2GPClient:
         self.port = port
         self.is_normal = is_normal
         self.perf_test = perf_test
+        if not is_normal:
+            self.client_hosts = self.get_clients(client_conf)
 
         self.init_conn = psycopg2.connect(
             database=database,
@@ -155,7 +157,7 @@ class GP2GPClient:
                 "user_id": row[6],
                 "status": row[7]
             }
-            endpoints[endpoint["hostname"]] = endpoints.get(endpoint["token"], [])
+            endpoints[endpoint["hostname"]] = endpoints.get(endpoint["hostname"], [])
             endpoints[endpoint["hostname"]].append(endpoint)
 
         logging.info("Endpoints: %s", endpoints)
@@ -185,9 +187,14 @@ class GP2GPClient:
     def fetch_all(self):
         self.result = []
         count = AtomicInteger()
+        client_index = 0
         for endpoints_per_machine in self.endpoints:
                 count.inc()
-            self.fetch_one(endpoints_per_machine, count)
+            self.fetch_one(endpoints_per_machine, count, self.client_hosts[client_index])
+            if client_index == len(self.client_hosts):
+                client_index = 0
+            else:
+                client_index += 1
 
         while count.value != 0:
             logging.debug("There are %d threads left.\n" % count.value)
@@ -195,7 +202,9 @@ class GP2GPClient:
 
     # retrieve all segments of a same machine
     @async_call
-    def fetch_one(self, endpoints, count):
+    def fetch_one(self, endpoints, count, client_host):
+        logging.debug("fetch_one: fetching segments on seg_host %s from client host %s", endpoints[0]["hostname"], client_host)
+
         try:
             # join all ports to one string
             ports_arr = []
@@ -205,34 +214,22 @@ class GP2GPClient:
             logging.debug("the ports are joined into one string: %s", ports)
 
             user = self.user or "gpadmin"
-            cmd_arg = [ "ssh", user + "@" + self.host, 
+            cmd_arg = [ "ssh", user + "@" + client_host, 
                         "python", "retrieve_client_scripts/retrieve_client.py", 
                         "-d", self.database, 
-                        "-H", endpoint["hostname"], 
+                        "-H", endpoints[0]["hostname"], 
                         "-p", ports, 
                         "-u", self.user,
-                        "-t", endpoint["token"]]
-            subprocess.call(cmd_arg)
+                        "-t", endpoints[0]["token"],
+                    ]
+            if self.perf_test:
+                cmd_arg.append("-T")
+                subprocess.check_call(cmd_arg)
+            else:
+                rows = subprocess.check_output(cmd_arg)
 
-            conn = psycopg2.connect(
-                database=self.database,
-                user=self.user,
-                # user="gpadmin",
-                password=endpoint.get('token'),
-                # password="123456",
-                host=endpoint.get('hostname'),
-                port=endpoint.get('port'),
-                options="-c gp_session_role=retrieve"
-            )
-
-            self.data_conns.append(conn)
-            cursor = conn.cursor()
-            cursor.execute('retrieve all from "%s"' % endpoint.get('token'))
-            rows = cursor.fetchall()
-
-            if not self.perf_test:
-                if count.value == 1:
-                    self.columns = [desc[0] for desc in cursor.description]
+                # if count.value == 1:
+                # TODO add title
 
                 self.result.extend(rows)
         except Exception as e:

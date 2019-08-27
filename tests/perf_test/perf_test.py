@@ -3,11 +3,13 @@
 #
 # this script runs and compares 22 tpc-h queries in both normal cursor mode and parallel cursor mode
 
-import os
 import logging
 import optparse
+import os
+
 from gp2gp.client import GP2GPClient
 from gp2gp.client_initializer import initialize_client
+
 
 def create_options():
     usage = "usage: %prog [options]"
@@ -33,6 +35,9 @@ def create_options():
     parser.add_option('-P', '--password', type="string",
                       dest="password", help="password to connect the db")
 
+    parser.add_option('-c', '--client_conf', type="string",
+                      dest="client_conf", help="the config file that stores the client machines", default="clients.conf")
+
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug", default="info")
 
@@ -55,7 +60,7 @@ def main():
                     port=options.port,
                     queries={}
         )
-    c.deploy()
+    c.deploy(options.client_conf)
     options.deploying = False
 
     # read the queries from data dir
@@ -70,4 +75,3 @@ def main():
         f.close()
 
     # c = initialize_client(options, test=True)
-
