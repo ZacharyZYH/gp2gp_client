@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # _*_ coding: utf-8 _*_
 #
-import os
 import logging
 import optparse
+import os
+import subprocess
 import time
 
 from prettytable import PrettyTable
+
 from gp2gp.client import GP2GPClient
 
 
@@ -98,9 +100,15 @@ if __name__ == '__main__':
 
     # clear memory cache
     if options.perf_test:
-        print("cleaning cache...")
-        os.system("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'")
-        print("running query...")
+        hosts = c.get_hosts()
+        print("Hosts: ", hosts)
+        for host in hosts:
+            print("cleaning cache on " + host[0] + "...")
+            args = ["ssh","root@" + host[0],"echo", "3", ">",  "/proc/sys/vm/drop_caches"]
+            subprocess.call(args)
+            print("finished cleaning cache on " + host[0])
+        print("Now running the query")
+        
 
     time_start=time.time()
     rows = c.get_data()

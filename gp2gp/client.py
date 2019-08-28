@@ -89,6 +89,11 @@ class GP2GPClient:
             logging.debug("Init: %s", sql)
             self.init_cursor.execute(sql)
 
+    def get_hosts(self):
+        sql = "SELECT DISTINCT hostname FROM gp_segment_configuration WHERE role = 'p'"
+        self.init_cursor.execute(sql)
+        return self.init_cursor.fetchall()
+
     def get_token(self):
         self.init_cursor.execute("select * from gp_endpoints;")
         row = self.init_cursor.fetchone()
