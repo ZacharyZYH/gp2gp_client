@@ -55,6 +55,7 @@ class GP2GPClient:
         self.port = port
         self.is_normal = is_normal
         self.perf_test = perf_test
+        self.fetch_size = 1000
 
         self.init_conn = psycopg2.connect(
             database=database,
@@ -184,16 +185,28 @@ class GP2GPClient:
 
             self.data_conns.append(conn)
             cursor = conn.cursor()
-            cursor.execute('retrieve all from "%s"' % endpoint.get('token'))
-            rows = cursor.fetchall()
+            retrieve_sql = 'retrieve ' + str(self.fetch_size) + ' from "%s"' % endpoint.get('token')
+            while True:
+                cursor.execute(retrieve_sql)
+                rows = cursor.fetchall()
+                if not rows:
+                    break
+                if not self.perf_test:
+                    self.result.extend(rows)
 
             if not self.perf_test:
                 if count.value == 1:
                     self.columns = [desc[0] for desc in cursor.description]
 
-                self.result.extend(rows)
         except Exception as e:
-            print e
+            # if mutiple retrieve process finish retrieving at the same time,
+            # they might still try to retrieve after the cursor is no longer in EXECUTED status
+            if e.message.startswith('the PARALLEL CURSOR related to endpoint token ' 
+                                    + endpoint.get('token')
+                                    + ' is not EXECUTED'):
+                pass
+            else:
+                logging.info(e)
             # os._exit(-1)
         finally:
             count.dec()
@@ -215,11 +228,16 @@ class GP2GPClient:
     def get_data(self):
         if(self.is_normal):
             self.init()
-            self.init_cursor.execute("fetch all from %s;" % self.queries.keys()[0])
-            rows = self.init_cursor.fetchall()
+            retrieve_sql = "fetch " + str(self.fetch_size) + " from %s;" % self.queries.keys()[0]
+            while True:
+                self.init_cursor.execute(retrieve_sql)
+                rows = self.init_cursor.fetchall()
+                if not rows:
+                    break
+                if not self.perf_test:
+                    self.result.extend(rows)
             if not self.perf_test:
                 self.columns = [desc[0] for desc in self.init_cursor.description]
-                self.result.extend(rows)
             self.init_cursor.execute("close %s;" % self.queries.keys()[0])
         else:
             if len(self.queries) != 1:
