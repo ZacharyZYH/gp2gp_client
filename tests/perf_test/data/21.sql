@@ -1,3 +1,6 @@
+-- using 1472396759 as a seed to the RNG
+
+
 select
 	s_name,
 	count(*) as numwait
@@ -31,10 +34,10 @@ where
 			and l3.l_receiptdate > l3.l_commitdate
 	)
 	and s_nationkey = n_nationkey
-	and n_name = 'SAUDI ARABIA'
+	and n_name = 'VIETNAM'
 group by
 	s_name
 order by
 	numwait desc,
-	s_name;
-LIMIT 100
+	s_name
+limit 1;

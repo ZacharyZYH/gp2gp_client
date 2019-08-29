@@ -1,3 +1,6 @@
+-- using 1472396759 as a seed to the RNG
+
+
 select
 	100.00 * sum(case
 		when p_type like 'PROMO%'
@@ -9,18 +12,6 @@ from
 	part
 where
 	l_partkey = p_partkey
-	and l_shipdate >= date '1995-09-01'
-	and l_shipdate < date '1995-09-01' + interval '1' month;
-LIMIT -1
-
-create view revenue0 (supplier_no, total_revenue) as
-	select
-		l_suppkey,
-		sum(l_extendedprice * (1 - l_discount))
-	from
-		lineitem
-	where
-		l_shipdate >= date '1996-01-01'
-		and l_shipdate < date '1996-01-01' + interval '3' month
-	group by
-		l_suppkey;
+	and l_shipdate >= date '1993-11-01'
+	and l_shipdate < date '1993-11-01' + interval '1' month
+limit 1;
