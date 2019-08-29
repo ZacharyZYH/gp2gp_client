@@ -43,6 +43,13 @@ class AtomicInteger():
             self._value = v
             return self._value
 
+def get_clients(client_conf):
+    file = open(client_conf)
+    clients = file.readlines()
+    file.close()
+    if not clients:
+        raise Exception("no valid hosts in the client config file")
+    return clients
 
 class GP2GPClient:
 
@@ -56,7 +63,7 @@ class GP2GPClient:
         self.is_normal = is_normal
         self.perf_test = perf_test
         if not is_normal:
-            self.client_hosts = self.get_clients(client_conf)
+            self.client_hosts = get_clients(client_conf)
 
         self.init_conn = psycopg2.connect(
             database=database,
@@ -82,14 +89,6 @@ class GP2GPClient:
         self.columns = []
         self.result = []
 
-    def get_clients(self, client_conf):
-        file = open(client_conf)
-        clients = file.readlines()
-        file.close()
-        if not clients:
-            raise Exception("no valid hosts in the client config file")
-        return clients
-
     def get_hosts(self):
         sql = "SELECT DISTINCT hostname FROM gp_segment_configuration WHERE role = 'p'" # Not sure
         self.init_cursor.execute(sql)
@@ -99,19 +98,6 @@ class GP2GPClient:
         sql = "SELECT DISTINCT hostname FROM gp_segment_configuration WHERE role = 'p' AND content>-1" # Not sure
         self.init_cursor.execute(sql)
         return self.init_cursor.fetchall()
-
-    def upload(self, seg_host):
-        logging.info("uploading to host: %s", seg_host)
-        user = self.user or "gpadmin"
-        os.system("scp -r retrieve_client_scripts/ " + user + "@" + seg_host + ":~ && ./retrieve_client_scripts/env.sh")
-
-    def deploy(self):
-        segments = self.get_segments()
-        for segment in segments:
-            self.upload(segment[0])
-
-        logging.info("deploy: finished")
-
 
     def init(self):
         for cursor_name, sql in self.queries.items():
@@ -189,7 +175,7 @@ class GP2GPClient:
         count = AtomicInteger()
         client_index = 0
         for endpoints_per_machine in self.endpoints:
-                count.inc()
+            count.inc()
             self.fetch_one(endpoints_per_machine, count, self.client_hosts[client_index])
             if client_index == len(self.client_hosts):
                 client_index = 0

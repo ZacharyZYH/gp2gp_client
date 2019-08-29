@@ -9,7 +9,7 @@ import time
 
 from prettytable import PrettyTable
 
-from client import GP2GPClient
+from client import GP2GPClient, get_clients
 
 
 def create_options():
@@ -57,6 +57,27 @@ def create_options():
     return parser
 
 
+def upload(client_host, user):
+    logging.info("uploading to host: %s", client_host)
+    user = user or "gpadmin"
+    cmd_arg = ["scp", "-r", "retrieve_client_scripts/", user + "@" + client_host + ":~"]
+    subprocess.call(cmd_arg)
+
+    print("intalling dependency...")
+    cmd_arg = ["ssh", "root@" + client_host, "/home/" + user + "/retrieve_client_scripts/env.sh"]
+    subprocess.call(cmd_arg)
+    print("finish")
+
+
+def deploy(client_conf, user):
+    client_hosts = get_clients(client_conf)
+    logging.debug("Deploy: %d client machines", len(client_hosts))
+    for client_host in client_hosts:
+        upload(client_host.strip(), user)
+
+    logging.info("Deploy: finished")
+
+
 def output_result(columns, rows):
     table = PrettyTable(list(columns))
     for row in rows:
@@ -69,6 +90,10 @@ def initialize_client(options, test = False):
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+
+    if options.deploying:
+        deploy(options.client_conf, options.user)
+        return 0.0
 
     if not options.query and not options.filename:
         raise Exception("Not set the query nor specify a file!")
@@ -98,19 +123,16 @@ def initialize_client(options, test = False):
                     client_conf=options.client_conf
                     )
 
-    if options.deploying:
-        c.deploy(options.client_conf)
-        return 0.0
-
     # clear memory cache on each machine
     if test:
         hosts = c.get_hosts()
         print("Hosts: ", hosts)
         for host in hosts:
-            print("cleaning cache on " + host + "...")
-            args = ["ssh","root@" + host,"echo", "3", ">",  "/proc/sys/vm/drop_caches"]
+            print("cleaning cache on " + host[0] + "...")
+            args = ["ssh","root@" + host[0],"echo", "3", ">",  "/proc/sys/vm/drop_caches"]
             subprocess.call(args)
-            print("finish")
+            print("finished cleaning cache on " + host[0])
+        print("Now running the query...")
 
     time_start=time.time()
     rows = c.get_data()

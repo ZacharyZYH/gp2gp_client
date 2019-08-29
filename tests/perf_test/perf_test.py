@@ -46,26 +46,16 @@ def create_options():
 def main():
     parser = create_options()
     options, _ = parser.parse_args()
-    options.deploying = True
 
     if options.log_level == 'debug':
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
 
-    c = GP2GPClient(database=options.database,
-                    user=options.user,
-                    password=options.password,
-                    host=options.host,
-                    port=options.port,
-                    queries={}
-        )
-    c.deploy(options.client_conf)
-    options.deploying = False
-
     # read the queries from data dir
     if os.path.basename(os.getcwd()) != "gp2gp_client":
-        raise Exception("Please enter the perf_test directory to run the script." + os.path.basename(os.getcwd()))
+        raise Exception("Not running the script in the gp2gp_client directory, but " + os.path.basename(os.getcwd()))
+
     path = "tests/perf_test/data/"
     file_list = os.listdir(path)
 
