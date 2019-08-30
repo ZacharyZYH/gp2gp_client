@@ -147,7 +147,7 @@ class GP2GPClient:
             endpoints[endpoint["hostname"]] = endpoints.get(endpoint["hostname"], [])
             endpoints[endpoint["hostname"]].append(endpoint)
 
-        logging.info("Endpoints: %s", endpoints)
+        logging.debug("Endpoints: %s", endpoints)
 
         return endpoints
 
@@ -175,7 +175,7 @@ class GP2GPClient:
         self.result = []
         count = AtomicInteger()
         client_index = 0
-        for endpoints_per_machine in self.endpoints:
+        for _, endpoints_per_machine in self.endpoints.iteritems():
             count.inc()
             self.fetch_one(endpoints_per_machine, count, self.client_hosts[client_index])
             if client_index == len(self.client_hosts):
@@ -196,7 +196,7 @@ class GP2GPClient:
             # join all ports to one string
             ports_arr = []
             for endpoint in endpoints:
-                ports_arr.append(endpoint["port"])
+                ports_arr.append(str(endpoint["port"]))
             ports = ",".join(ports_arr)
             logging.debug("the ports are joined into one string: %s", ports)
 
@@ -206,7 +206,7 @@ class GP2GPClient:
                         "-d", self.database, 
                         "-H", endpoints[0]["hostname"], 
                         "-p", ports, 
-                        "-u", self.user,
+                        # "-u", self.user or "",
                         "-t", endpoints[0]["token"],
                         "-s", self.fetch_size
                     ]
@@ -246,7 +246,7 @@ class GP2GPClient:
             retrieve_sql = "fetch " + self.fetch_size + " from %s;" % self.queries.keys()[0]
             while True:
                 self.init_cursor.execute(retrieve_sql)
-            rows = self.init_cursor.fetchall()
+                rows = self.init_cursor.fetchall()
                 if not rows:
                     break
                 if not self.perf_test:

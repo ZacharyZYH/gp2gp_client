@@ -151,4 +151,5 @@ def initialize_client(options):
 def main():
     parser = create_options()
     options, _ = parser.parse_args()
-    initialize_client(options, test)
+    cost = initialize_client(options)
+    print('totally cost',cost)
