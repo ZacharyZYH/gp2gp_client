@@ -68,6 +68,9 @@ def create_options():
     parser.add_option('-t', '--token', type="string",
                       dest="token", help="password to connect the db")
 
+    parser.add_option('-s', '--size', type="string",
+                      dest="fetch_size", help="lines per retrieve")
+
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug", default="info")
 
@@ -88,13 +91,25 @@ def retrieve_one(options, port, count):
                 options="-c gp_session_role=retrieve"
             )
         cursor = conn.cursor()
-        cursor.execute('retrieve all from "%s"' % options.token)
-        rows = cursor.fetchall()
+        retrieve_sql = 'retrieve ' + options.fetch_size + ' from "%s"' % options.token
+        while True:
+            cursor.execute(retrieve_sql)
+            rows = cursor.fetchall()
+            if not rows:
+                break
+        conn.close()
         if not options.perf_test:
             print(rows)
 
     except Exception as e:
-        print e
+        # if mutiple retrieve process finish retrieving at the same time,
+        # they might still try to retrieve after the cursor is no longer in EXECUTED status
+        if e.message.startswith('the PARALLEL CURSOR related to endpoint token ' 
+                                + options.token
+                                + ' is not EXECUTED'):
+            pass
+        else:
+            logging.info(e)
     finally:
         count.dec()
 

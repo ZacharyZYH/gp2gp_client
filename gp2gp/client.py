@@ -62,6 +62,7 @@ class GP2GPClient:
         self.port = port
         self.is_normal = is_normal
         self.perf_test = perf_test
+        self.fetch_size = "1000"
         if not is_normal:
             self.client_hosts = get_clients(client_conf)
 
@@ -207,6 +208,7 @@ class GP2GPClient:
                         "-p", ports, 
                         "-u", self.user,
                         "-t", endpoints[0]["token"],
+                        "-s", self.fetch_size
                     ]
             if self.perf_test:
                 cmd_arg.append("-T")
@@ -241,11 +243,16 @@ class GP2GPClient:
     def get_data(self):
         if(self.is_normal):
             self.init()
-            self.init_cursor.execute("fetch all from %s;" % self.queries.keys()[0])
+            retrieve_sql = "fetch " + self.fetch_size + " from %s;" % self.queries.keys()[0]
+            while True:
+                self.init_cursor.execute(retrieve_sql)
             rows = self.init_cursor.fetchall()
+                if not rows:
+                    break
+                if not self.perf_test:
+                    self.result.extend(rows)
             if not self.perf_test:
                 self.columns = [desc[0] for desc in self.init_cursor.description]
-                self.result.extend(rows)
             self.init_cursor.execute("close %s;" % self.queries.keys()[0])
         else:
             if len(self.queries) != 1:
