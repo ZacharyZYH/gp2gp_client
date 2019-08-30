@@ -54,6 +54,9 @@ def create_options():
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug", default="info")
 
+    parser.add_option('-t', '--test', action="store_true",
+                      dest="perf_test", help="not generating the result, just for performance testing", default=False)
+
     return parser
 
 
@@ -85,7 +88,7 @@ def output_result(columns, rows):
     print table
 
 
-def initialize_client(options, test = False):
+def initialize_client(options):
     if options.log_level == 'debug':
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -119,12 +122,12 @@ def initialize_client(options, test = False):
                     host=options.host,
                     port=options.port,
                     is_normal=options.is_normal,
-                    perf_test=test,
+                    perf_test=options.perf_test,
                     client_conf=options.client_conf
                     )
 
     # clear memory cache on each machine
-    if test:
+    if options.perf_test:
         hosts = c.get_hosts()
         print("Hosts: ", hosts)
         for host in hosts:
@@ -138,14 +141,14 @@ def initialize_client(options, test = False):
     rows = c.get_data()
     time_end=time.time()
 
-    if not test:
+    if not options.perf_test:
         output_result(c.columns, rows)
         return 0.0
     else:
         return time_end - time_start
 
 
-def main(test=False):
+def main():
     parser = create_options()
     options, _ = parser.parse_args()
     initialize_client(options, test)
