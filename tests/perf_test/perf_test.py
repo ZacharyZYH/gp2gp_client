@@ -46,6 +46,9 @@ def create_options():
 def main():
     parser = create_options()
     options, _ = parser.parse_args()
+    options.perf_test = True
+    options.deploying = False
+    options.query = ""
 
     if options.log_level == 'debug':
         logging.basicConfig(level=logging.DEBUG)
@@ -54,14 +57,22 @@ def main():
 
     # read the queries from data dir
     if os.path.basename(os.getcwd()) != "gp2gp_client":
-        raise Exception("Not running the script in the gp2gp_client directory, but " + os.path.basename(os.getcwd()))
+        raise Exception("You should run the script in the gp2gp_client directory, but not" + os.path.basename(os.getcwd()))
 
     path = "tests/perf_test/data/"
     file_list = os.listdir(path)
+    
+    result = {}
 
     for filename in file_list:
-        f = open(path+filename)
-        options.query = f.read()
-        f.close()
+        options.filename = path+filename
+        options.is_normal = True
+        logging.info("Running SQL query %s" % filename)
+        cost1 = initialize_client(options)
+        logging.info("normal cursor time: %f seconds" % cost1)
+        options.is_normal = False
+        cost2 = initialize_client(options)
+        logging.info("parallel cursor time: %f seconds" % cost2)
+        result[filename] = (cost1, cost2)
 
-    # c = initialize_client(options, test=True)
+    print(result)

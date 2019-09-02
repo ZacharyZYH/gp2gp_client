@@ -91,12 +91,12 @@ class GP2GPClient:
         self.result = []
 
     def get_hosts(self):
-        sql = "SELECT DISTINCT hostname FROM gp_segment_configuration WHERE role = 'p'" # Not sure
+        sql = "SELECT DISTINCT hostname FROM gp_segment_configuration WHERE role = 'p'"
         self.init_cursor.execute(sql)
         return self.init_cursor.fetchall()
 
     def get_segments(self):
-        sql = "SELECT DISTINCT hostname FROM gp_segment_configuration WHERE role = 'p' AND content>-1" # Not sure
+        sql = "SELECT DISTINCT hostname FROM gp_segment_configuration WHERE role = 'p' AND content>-1"
         self.init_cursor.execute(sql)
         return self.init_cursor.fetchall()
 
