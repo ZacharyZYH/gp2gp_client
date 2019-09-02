@@ -64,7 +64,7 @@ def main():
     
     result = {}
 
-    for filename in file_list:
+    for filename in sorted(file_list):
         options.filename = path+filename
         options.is_normal = True
         logging.info("Running SQL query %s" % filename)

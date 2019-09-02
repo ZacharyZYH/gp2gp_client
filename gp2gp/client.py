@@ -177,7 +177,7 @@ class GP2GPClient:
         client_index = 0
         for _, endpoints_per_machine in self.endpoints.iteritems():
             count.inc()
-            self.fetch_one(endpoints_per_machine, count, self.client_hosts[client_index])
+            self.fetch_one(endpoints_per_machine, count, self.client_hosts[client_index].strip())
             if client_index == len(self.client_hosts):
                 client_index = 0
             else:
