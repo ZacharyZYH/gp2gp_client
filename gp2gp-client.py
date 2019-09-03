@@ -4,7 +4,7 @@
 import logging
 import optparse
 import os
-import subprocess
+import subprocess32 as subprocess
 import time
 
 from prettytable import PrettyTable
@@ -98,16 +98,30 @@ if __name__ == '__main__':
                     perf_test=options.perf_test
                     )
 
-    # clear memory cache
+    # clear memory cache on each machine
     if options.perf_test:
         hosts = c.get_hosts()
-        print("Hosts: ", hosts)
+        logging.info("Hosts: %s" % str(hosts))
         for host in hosts:
-            print("cleaning cache on " + host[0] + "...")
+            # subprocess might be blocked for unknown reason, so we add a timeout-retry here
+            max_try = 3
+            try_time = 0
+            logging.info("cleaning cache on " + host[0] + "...")
             args = ["ssh","root@" + host[0],"echo", "3", ">",  "/proc/sys/vm/drop_caches"]
-            subprocess.call(args)
-            print("finished cleaning cache on " + host[0])
-        print("Now running the query")
+            while try_time < max_try:
+                try:
+                    subprocess.call(args, timeout=5)
+                except subprocess.TimeoutExpired:
+                    logging.info("Timeout!")
+                    try_time += 1
+                    if try_time >= max_try:
+                        raise Exception("Failed to clean cache on " + host[0])
+                    continue
+                else:
+                    break
+            
+            logging.info("Finished cleaning cache on " + host[0])
+        logging.info("Now running the query...")
 
     time_start=time.time()
     rows = c.get_data()
