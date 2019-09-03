@@ -36,7 +36,7 @@ def create_options():
     parser.add_option('-P', '--password', type="string",
                       dest="password", help="password to connect the db")
 
-    parser.add_option('-c', '--query', type="string",
+    parser.add_option('-q', '--query', type="string",
                       dest="query", help="the query which send to server")
 
     parser.add_option('-f', '--file', type="string",
