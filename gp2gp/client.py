@@ -211,7 +211,6 @@ class GP2GPClient:
                         "-s", self.fetch_size
                     ]
             if self.perf_test:
-                cmd_arg.append("-T")
                 subprocess.check_call(cmd_arg)
             else:
                 rows = subprocess.check_output(cmd_arg)

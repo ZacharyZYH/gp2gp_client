@@ -54,8 +54,8 @@ def create_options():
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug, DEFAULT VALUE 'info'", default="info")
 
-    parser.add_option('-t', '--test', action="store_true",
-                      dest="perf_test", help="not generating the result, just for performance testing", default=False)
+    # parser.add_option('-t', '--test', action="store_true",
+    #                   dest="perf_test", help="not generating the result, just for performance testing", default=False)
 
     return parser
 
@@ -89,6 +89,7 @@ def output_result(columns, rows):
 
 
 def initialize_client(options):
+    options.perf_test = True
     if options.log_level == 'debug':
         logging.basicConfig(level=logging.DEBUG)
     else:
