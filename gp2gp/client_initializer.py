@@ -49,10 +49,10 @@ def create_options():
                       dest="deploying", help="deploy the clients by uploading", default=False)
 
     parser.add_option('-c', '--client_conf', type="string",
-                      dest="client_conf", help="the config file that stores the client machines", default="clients.conf")
+                      dest="client_conf", help="the config file that stores the client machines, DEFAULT VALUE 'clients.conf'", default="clients.conf")
 
     parser.add_option('-l', '--level', type="string",
-                      dest="log_level", help="log level: info|debug", default="info")
+                      dest="log_level", help="log level: info|debug, DEFAULT VALUE 'info'", default="info")
 
     parser.add_option('-t', '--test', action="store_true",
                       dest="perf_test", help="not generating the result, just for performance testing", default=False)
@@ -110,8 +110,9 @@ def initialize_client(options):
         }
     else:
         f = open(options.filename)
+        cur_name = ''.join(ch for ch in options.filename if ch.isalnum())
         queries = {
-            "c1": f.read(),
+            cur_name: f.read(),
         }
         f.close()
 
