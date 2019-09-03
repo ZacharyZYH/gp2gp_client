@@ -131,7 +131,7 @@ def initialize_client(options):
     # clear memory cache on each machine
     if options.perf_test:
         hosts = c.get_hosts()
-        print("Hosts: ", hosts)
+        logging.info("Hosts: %s" % str(hosts))
         for host in hosts:
             # subprocess might be blocked for unknown reason, so we add a timeout-retry here
             max_try = 3
