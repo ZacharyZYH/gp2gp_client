@@ -7,7 +7,7 @@ If you want single-client query runner, see branch 1.X
 
 ## Environment
 
-- python version: 2.7
+- Python version: 2.7
 
 - GPDB version: commit ab0787718f17e4c54110fe507625ede4efebfb84 at https://github.com/liming01/gpdb/commits/feature_parallelcursor
 
@@ -46,4 +46,4 @@ $ python gp2gp_client.py -D -H localhost -p 15432 -u gpadmin -c client.conf
 Runs a single query once, using either normal cursor or parallel cursor
 
 ## gp2gp_perf_test.py
-Iterate through 22 TPC-H queries. For each query. run it in both type of cursor. Record the execution time and output to result.csv.
+Iterate through 22 TPC-H queries. For each query, run it in both type of cursor. Record the execution time and output to result.csv.

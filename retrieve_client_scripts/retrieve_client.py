@@ -15,7 +15,7 @@ def create_options():
     description = '''GP2GP Retrieve Client Demo'''
 
     parser = optparse.OptionParser(
-        description=description, prog='gp2gp-client', usage=usage)
+        description=description, prog='retrieve_client.py', usage=usage)
 
     parser.add_option('-d', '--database', type="string",
                       dest="database", help="Connect to the database")
