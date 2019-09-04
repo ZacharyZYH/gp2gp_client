@@ -3,6 +3,7 @@
 #
 # this script runs and compares 22 tpc-h queries in both normal cursor mode and parallel cursor mode
 
+import csv
 import logging
 import optparse
 import os
@@ -62,7 +63,7 @@ def main():
     path = "tests/perf_test/data/"
     file_list = os.listdir(path)
     
-    result = {}
+    result = []
 
     for filename in sorted(file_list):
         options.filename = path+filename
@@ -73,6 +74,10 @@ def main():
         options.is_normal = False
         cost2 = initialize_client(options)
         logging.info("parallel cursor time: %f seconds" % cost2)
-        result[filename] = (cost1, cost2)
+        result.append([filename, cost1, cost2])
 
-    print(result)
+    with open("result.csv", "w") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["query", "n_cursor", "p_cursor"])
+        writer.writerows(result)
+
