@@ -2,46 +2,12 @@
 # _*_ coding: utf-8 _*_
 #
 import logging
+import multiprocessing
 import optparse
 import os
-import threading
 from time import sleep
 
 import psycopg2
-
-
-def async_call(fn):
-    def wrapper(*args, **kwargs):
-        threading.Thread(target=fn, args=args, kwargs=kwargs).start()
-
-    return wrapper
-
-
-class AtomicInteger():
-    def __init__(self, value=0):
-        self._value = value
-        self._lock = threading.Lock()
-
-    def inc(self):
-        with self._lock:
-            self._value += 1
-            return self._value
-
-    def dec(self):
-        with self._lock:
-            self._value -= 1
-            return self._value
-
-    @property
-    def value(self):
-        with self._lock:
-            return self._value
-
-    @value.setter
-    def value(self, v):
-        with self._lock:
-            self._value = v
-            return self._value
 
 
 def create_options():
@@ -74,13 +40,12 @@ def create_options():
     parser.add_option('-l', '--level', type="string",
                       dest="log_level", help="log level: info|debug", default="info")
 
-    parser.add_option('-T', '--test', action="store_true",
-                      dest="perf_test", help="execute for performance testing(not generating result)", default=False)
+    # parser.add_option('-T', '--test', action="store_true",
+    #                   dest="perf_test", help="execute for performance testing(not generating result)", default=False)
 
     return parser
 
-@async_call
-def retrieve_one(options, port, count):
+def retrieve_one(options, port):
     try:
         conn = psycopg2.connect(
                 database=options.database,
@@ -110,8 +75,6 @@ def retrieve_one(options, port, count):
             pass
         else:
             logging.info(e)
-    finally:
-        count.dec()
 
 if __name__ == '__main__':
     parser = create_options()
@@ -125,12 +88,10 @@ if __name__ == '__main__':
     # parse the port string into a list
     ports = options.ports.split(",")
 
-    count = AtomicInteger()
-
+    pool = []
     for port in ports:
-        count.inc()
-        retrieve_one(options, port, count)
+        proc = multiprocessing.Process(target=retrieve_one, args=(options, port))
+        proc.start()
+        pool.append(proc)
 
-    while count.value != 0:
-        logging.debug("There are %d threads left.\n" % count.value)
-        sleep(0.1)
+    map(lambda p: p.join(), pool)
