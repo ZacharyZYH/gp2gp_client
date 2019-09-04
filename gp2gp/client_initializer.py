@@ -46,7 +46,7 @@ def create_options():
                       dest="is_normal", help="use normal cursor instead of parallel cursor", default=False)
 
     parser.add_option('-D', '--deploy', action="store_true",
-                      dest="deploying", help="deploy the clients by uploading", default=False)
+                      dest="deploying", help="deploy the clients by uploading and running the scripts", default=False)
 
     parser.add_option('-c', '--client_conf', type="string",
                       dest="client_conf", help="the config file that stores the client machines, DEFAULT VALUE 'clients.conf'", default="clients.conf")
